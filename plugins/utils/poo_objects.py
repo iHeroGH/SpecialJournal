@@ -19,7 +19,7 @@ class PoopEnum(IntEnum):
         return None
 
     def __str__(self) -> str:
-        return f"**{self.name.replace("_", " ").title()}**"
+        return f"**{self.name.replace('_', ' ').title()}**"
 
     def __repr__(self) -> str:
         return self.name.replace("_", " ").title()
