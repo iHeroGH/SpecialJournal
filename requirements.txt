@@ -1,0 +1,5 @@
+git+https://github.com/Voxel-Fox-Ltd/Novus@rewrite
+toml
+asyncpg
+tzdata
+matplotlib
