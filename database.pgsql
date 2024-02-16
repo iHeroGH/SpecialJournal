@@ -12,5 +12,7 @@ CREATE TABLE IF NOT EXISTS poo_events(
     continuous BOOLEAN default False,
     rise BOOLEAN default False,
 
-    event_time TIMESTAMP WITH TIME ZONE
+    event_time TIMESTAMP WITH TIME ZONE,
+
+    PRIMARY KEY (user_id, event_time)
 );
