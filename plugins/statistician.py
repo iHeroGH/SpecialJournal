@@ -149,7 +149,7 @@ class Statistician(client.Plugin):
                 logged_events: list[LoggedEvent],
                 minute_intervals: int = 30
             ) -> io.BytesIO:
-        """"""
+        """Creates a clock-plot of event-time frequency"""
 
         # Fill the axis with time-parts based on the minute interval
         start_time = dt.datetime(
@@ -172,8 +172,6 @@ class Statistician(client.Plugin):
             tzinfo=tz("America/Los_Angeles")
         ))
 
-        log.info(f"Creating clock-plot with axis times {axis_times}")
-
         # Create the plot itself
         plt.figure(figsize=(8,8))
         clock_plot: PolarAxes = plt.subplot(111, projection="polar") # type: ignore
@@ -191,8 +189,6 @@ class Statistician(client.Plugin):
             key=lambda e: Statistician.truncate_datetime(e.event_time)
         )
 
-        log.info(f"Creating clock-plot for events {event_by_time}")
-
         next_axis_time = 1
         current_event = 0
         counts = [0]
@@ -207,7 +203,7 @@ class Statistician(client.Plugin):
                 counts.append(0)
 
             current_event += 1
-        while len(counts) < len(axis_times):
+        while len(counts) < len(axis_times) - 1:
             counts.append(0)
 
         # Plot the bars onto the clock
