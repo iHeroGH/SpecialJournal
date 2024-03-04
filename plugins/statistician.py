@@ -1,4 +1,5 @@
 import io
+import logging
 import novus as n
 from novus import types as t
 from novus.ext import client
@@ -12,6 +13,8 @@ import numpy as np
 
 from .utils.poo_objects import LoggedEvent
 from .utils.poo_cache_utils import get_pooper
+
+log = logging.getLogger("plugins.poo_master")
 
 class Statistician(client.Plugin):
 
@@ -146,7 +149,7 @@ class Statistician(client.Plugin):
                 logged_events: list[LoggedEvent],
                 minute_intervals: int = 30
             ) -> io.BytesIO:
-        """"""
+        """Creates a clock-plot of event-time frequency"""
 
         # Fill the axis with time-parts based on the minute interval
         start_time = dt.datetime(
@@ -163,6 +166,11 @@ class Statistician(client.Plugin):
             axis_times.append(
                 axis_times[-1] + dt.timedelta(minutes=minute_intervals)
             )
+        axis_times.append(dt.datetime(
+            year=1, month=1, day=2,
+            hour=0, minute=0,
+            tzinfo=tz("America/Los_Angeles")
+        ))
 
         # Create the plot itself
         plt.figure(figsize=(8,8))
@@ -173,13 +181,14 @@ class Statistician(client.Plugin):
         clock_plot.set_theta_zero_location("N")
 
         # The hidden radian ticks
-        theta = np.linspace(0, 2 * np.pi, len(axis_times), endpoint=False)
+        theta = np.linspace(0, 2 * np.pi, len(axis_times) - 1, endpoint=False)
 
         # The input data (maps onto the hidden ticks)
         event_by_time = sorted(
             logged_events,
             key=lambda e: Statistician.truncate_datetime(e.event_time)
         )
+
         next_axis_time = 1
         current_event = 0
         counts = [0]
@@ -194,7 +203,7 @@ class Statistician(client.Plugin):
                 counts.append(0)
 
             current_event += 1
-        while len(counts) < len(axis_times):
+        while len(counts) < len(axis_times) - 1:
             counts.append(0)
 
         # Plot the bars onto the clock
@@ -214,7 +223,7 @@ class Statistician(client.Plugin):
             labels=[
                 s.strftime("%I:%M %p")
                 if not s.minute else ''
-                for s in axis_times
+                for s in axis_times[:-1]
             ]
         )
         clock_plot.tick_params(pad=15, grid_color='#F6F6F6', labelcolor="white")
