@@ -166,6 +166,11 @@ class Statistician(client.Plugin):
             axis_times.append(
                 axis_times[-1] + dt.timedelta(minutes=minute_intervals)
             )
+        axis_times.append(dt.datetime(
+            year=1, month=1, day=2,
+            hour=0, minute=0,
+            tzinfo=tz("America/Los_Angeles")
+        ))
 
         log.info(f"Creating clock-plot with axis times {axis_times}")
 
@@ -178,7 +183,7 @@ class Statistician(client.Plugin):
         clock_plot.set_theta_zero_location("N")
 
         # The hidden radian ticks
-        theta = np.linspace(0, 2 * np.pi, len(axis_times), endpoint=False)
+        theta = np.linspace(0, 2 * np.pi, len(axis_times) - 1, endpoint=False)
 
         # The input data (maps onto the hidden ticks)
         event_by_time = sorted(
@@ -222,7 +227,7 @@ class Statistician(client.Plugin):
             labels=[
                 s.strftime("%I:%M %p")
                 if not s.minute else ''
-                for s in axis_times
+                for s in axis_times[:-1]
             ]
         )
         clock_plot.tick_params(pad=15, grid_color='#F6F6F6', labelcolor="white")
