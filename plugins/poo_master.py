@@ -10,7 +10,8 @@ import random
 
 from .utils.poo_objects import Volume, Texture, Shape, Feel, \
                                     Color, Smell, LoggedEvent
-from .utils.poo_cache_utils import get_pooper, poo_modify_cache_db
+from .utils.poo_cache_utils import get_pooper, poo_modify_cache_db, \
+                                    parse_datetime
 from .utils.autocomplete import VOLUME_OPTIONS, TEXTURE_OPTIONS, \
                                 SHAPE_OPTIONS, FEEL_OPTIONS, \
                                     COLOR_OPTIONS, SMELL_OPTIONS, BOOLEAN_OPTIONS
@@ -71,6 +72,12 @@ class PooMaster(client.Plugin):
     @client.command(
         name="log add",
         options = [
+            n.ApplicationCommandOption(
+                name="event_time",
+                type=n.ApplicationOptionType.string,
+                description=f"The YYYY/MM/DD HH:MM:SS AM/PM of the event (defaults to right now)",
+                required=False
+            ),
             n.ApplicationCommandOption(
                 name="volume",
                 type=n.ApplicationOptionType.integer,
@@ -147,6 +154,9 @@ class PooMaster(client.Plugin):
     async def add_event(
                 self,
                 ctx: t.CommandI,
+                event_time: str | dt.datetime = dt.datetime.now(
+                    tz("America/Los_Angeles")
+                ),
                 volume: int | Volume = Volume.DEFAULT,
                 texture: int | Texture = Texture.DEFAULT,
                 shape: int | Shape = Shape.DEFAULT,
@@ -161,6 +171,10 @@ class PooMaster(client.Plugin):
         """Logs an event"""
 
         # Fix our input variables and create the event object
+        try:
+            event_time = parse_datetime(event_time)
+        except:
+            return await ctx.send("Ran into an error parsing that time.")
         volume = Volume(volume)
         texture = Texture(texture)
         shape = Shape(shape)
@@ -192,7 +206,7 @@ class PooMaster(client.Plugin):
             smell,
             continuous,
             rise,
-            event_time:=dt.datetime.now(tz("America/Los_Angeles"))
+            event_time
         )
 
         log.info(f"Attempting to log '{repr(logged_event)}' to {ctx.user.id}")
@@ -226,6 +240,53 @@ class PooMaster(client.Plugin):
         )
 
     @client.command(
+        name="log delete",
+        options=[
+            n.ApplicationCommandOption(
+                name="event_time",
+                type=n.ApplicationOptionType.string,
+                description=f"The YYYY/MM/DD HH:MM:SS AM/PM of the event to update",
+                required=True
+            ),
+        ]
+    )
+    async def delete_event(
+                self,
+                ctx: t.CommandI,
+                event_time: str | dt.datetime
+            ):
+        """Deletes an existing event"""
+        await ctx.send("Deleted")
+
+    @client.command(
+        name="log update",
+        options=[
+            n.ApplicationCommandOption(
+                name="original_event_time",
+                type=n.ApplicationOptionType.string,
+                description=f"The YYYY/MM/DD HH:MM:SS AM/PM of the event to update",
+                required=True
+            ),
+            n.ApplicationCommandOption(
+                name="new_event_time",
+                type=n.ApplicationOptionType.string,
+                description=f"The YYYY/MM/DD HH:MM:SS AM/PM to update to (defaults to right now)",
+                required=False
+            ),
+        ]
+    )
+    async def update_event(
+                self,
+                ctx: t.CommandI,
+                original_event_time: str | dt.datetime,
+                new_event_time: str | dt.datetime = dt.datetime.now(
+                    tz("America/Los_Angeles")
+                )
+            ):
+        """Updates the time of an existing event"""
+        await ctx.send("Updated")
+
+    @client.command(
         name="log list",
         options = [
             n.ApplicationCommandOption(
@@ -257,6 +318,9 @@ class PooMaster(client.Plugin):
             ) -> None:
         """List's a your events in a paginated format"""
 
+        if not (year or month or day):
+            return await self.send_event_dates(ctx)
+
         now = dt.datetime.now(tz("America/Los_Angeles"))
 
         year = year or now.year
@@ -264,8 +328,10 @@ class PooMaster(client.Plugin):
         day = day or now.day
 
         try:
-            dt.datetime(year, month, day)
-        except:
+            entered = dt.datetime(
+                year, month, day, tzinfo=tz("America/Los_Angeles")
+            )
+        except Exception as e:
             return await ctx.send("Please enter a valid date.")
 
         pooper = get_pooper(ctx.user.id)
@@ -282,7 +348,9 @@ class PooMaster(client.Plugin):
 
         if final_page < 0:
             return await ctx.send(
-                "You have no logged events on that day to display."
+                f"You have no logged events on { \
+                    entered.strftime("%B %d, %Y %I:%M:%S %p") \
+                } to display."
             )
 
         await ctx.send(
@@ -291,6 +359,34 @@ class PooMaster(client.Plugin):
                 ctx.user.id, year, month, day, 0, final_page
             )
         )
+
+    async def send_event_dates(self, ctx: t.CommandI):
+        found_dates: set[dt.datetime] | list[dt.datetime] = set()
+        pooper = get_pooper(ctx.user.id)
+
+        if not pooper.logged_events:
+            return await ctx.send("You have not yet logged any events!")
+
+        for event in pooper.logged_events:
+            found_dates.add(
+                dt.datetime(
+                    event.event_time.year,
+                    event.event_time.month,
+                    event.event_time.day,
+                    tzinfo=event.event_time.tzinfo
+                )
+            )
+
+        found_dates = sorted(list(found_dates))
+
+        embed = n.Embed(title="Available Poo Dates")
+        embed.color = 0x563D2D
+
+        embed.description = "\n".join(
+            [date.strftime("%B %d, %Y") for date in found_dates]
+        )
+
+        await ctx.send(embeds=[embed])
 
     def get_formatted_page(
                 self,
@@ -304,6 +400,7 @@ class PooMaster(client.Plugin):
         )
 
         embed = n.Embed(title=fake_date.strftime("%B %d, %Y"))
+        embed.color = 0x563D2D
 
         if not fake_date in paginated_events or page < 0:
             return embed, -1

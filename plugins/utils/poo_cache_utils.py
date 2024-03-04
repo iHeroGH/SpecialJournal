@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
-from datetime import datetime as dt
+import datetime as dt
 
 if TYPE_CHECKING:
     from asyncpg.connection import Connection
@@ -79,7 +79,7 @@ async def poo_modify_cache_db(
             smell: Smell,
             continuous: bool,
             rise: bool,
-            event_time: dt,
+            event_time: dt.datetime,
             conn: Connection | None = None,
         ) -> bool:
     """
@@ -118,6 +118,8 @@ async def poo_modify_cache_db(
     success : bool
         A state of sucess for the requested operation.
     """
+
+    event_time = truncate_time(event_time)
 
     logged_event = LoggedEvent(
         volume,
@@ -171,6 +173,21 @@ async def poo_modify_cache_db(
                 $10,
                 $11
             )
+        ON CONFLICT
+            (
+                user_id,
+                event_time
+            )
+        DO UPDATE SET
+            volume = $2,
+            texture = $3,
+            shape = $4,
+            feel = $5,
+            wipe_count = $6,
+            color = $7,
+            smell = $8,
+            continuous = $9,
+            rise = $10
         """
     )
 
@@ -179,7 +196,14 @@ async def poo_modify_cache_db(
 
     # Perfrom the operation
     if CACHE_CHECK:
-        pooper.logged_events.append(logged_event)
+        updated = False
+        for event in pooper.logged_events:
+            if compare_times(event.event_time, logged_event.event_time):
+                event = logged_event
+                updated = True
+                break
+        if not updated:
+            pooper.logged_events.append(logged_event)
 
         # If a database connection was given, add it to the db as well
         if conn:
@@ -199,3 +223,23 @@ async def poo_modify_cache_db(
             )
 
     return CACHE_CHECK
+
+def compare_times(first: dt.datetime, second: dt.datetime):
+    return truncate_time(first) == truncate_time(second)
+
+def truncate_time(time: dt.datetime):
+    return dt.datetime(
+        time.year, time.month, time.day,
+        time.hour, time.minute, time.second,
+        tzinfo=time.tzinfo
+    )
+
+def parse_datetime(time_identifier: str | dt.datetime) -> dt.datetime:
+    if isinstance(time_identifier, dt.datetime):
+        return time_identifier
+
+    return dt.datetime.strptime(
+        time_identifier.strip(),
+        "%Y/%m/%d %I:%M:%S %p"
+    )
+
