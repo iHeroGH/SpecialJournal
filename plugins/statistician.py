@@ -1,4 +1,5 @@
 import io
+import logging
 import novus as n
 from novus import types as t
 from novus.ext import client
@@ -12,6 +13,8 @@ import numpy as np
 
 from .utils.poo_objects import LoggedEvent
 from .utils.poo_cache_utils import get_pooper
+
+log = logging.getLogger("plugins.poo_master")
 
 class Statistician(client.Plugin):
 
@@ -164,6 +167,8 @@ class Statistician(client.Plugin):
                 axis_times[-1] + dt.timedelta(minutes=minute_intervals)
             )
 
+        log.info(f"Creating clock-plot with axis times {axis_times}")
+
         # Create the plot itself
         plt.figure(figsize=(8,8))
         clock_plot: PolarAxes = plt.subplot(111, projection="polar") # type: ignore
@@ -180,6 +185,9 @@ class Statistician(client.Plugin):
             logged_events,
             key=lambda e: Statistician.truncate_datetime(e.event_time)
         )
+
+        log.info(f"Creating clock-plot for events {event_by_time}")
+
         next_axis_time = 1
         current_event = 0
         counts = [0]
