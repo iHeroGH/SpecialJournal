@@ -10,11 +10,13 @@ from matplotlib import pyplot as plt
 from matplotlib.projections.polar import PolarAxes
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 import numpy as np
+import requests
 
 from .utils.poo_objects import LoggedEvent
 from .utils.poo_cache_utils import get_pooper
 
 log = logging.getLogger("plugins.poo_master")
+
 
 class Statistician(client.Plugin):
 
@@ -257,3 +259,43 @@ class Statistician(client.Plugin):
             "poop", [starting_color, ending_color]
         )
         return cmap(normalizer(counts))
+
+    @client.command(name="mc")
+    async def server(self, ctx: t.CommandI):
+        """
+        Finds info on the Minecraft server and sends an embed to chat
+        """
+
+        API_ENDPOINT = "https://api.mcstatus.io/v2/status/java/"
+        SERVER_ADDRESS = "ThundaDownUnda.aternos.me"
+
+        request = requests.get(API_ENDPOINT + SERVER_ADDRESS)
+        server_data = request.json()
+
+        embed = n.Embed(title="Minecraft Server!")
+
+        server_status = server_data['online']
+        embed.color = 0x00FF00 if server_status else 0xFF0000
+        embed.description = "*Refreshes every 5 minutes*"
+
+        if not server_status:
+            embed.description = "The server is currently offline! Check back later :(\n" + embed.description
+            return await ctx.send(embeds=[embed])
+
+        player_count = server_data['players']['online']
+        max_players = server_data['players']['max']
+        version = server_data['version']["name_clean"]
+        ip = f"{server_data['host']} ({server_data['ip_address']}: {server_data['port']})"
+
+        players = []
+        player_string = "*Nobody is on :(*"
+        if player_count:
+            players = server_data['players']['list']
+            player_string = ""
+            for player in players:
+                player_string += player["name_clean"] + "\n"
+
+        embed.add_field(name=f"Players Online {player_count}/{max_players}", value=player_string)
+        embed.add_field(name="Connection Info", value=f"Version: **{version}**\nAddress: **{ip}**", inline=False)
+
+        await ctx.send(embeds=[embed])
